@@ -3,7 +3,7 @@ This is the official repository for the workshop paper in WMT-SLT23: KnowComp Su
 ![Model demonstration](./model_figure.png)
 
 ## Weight downloading
-To download our model weights and tokenizer, please download it from [here](https://hkustconnect-my.sharepoint.com/:f:/g/personal/bxuan_connect_ust_hk/EkcGHlIfS5hLvkIW1JgA_QsB542tOQxIHVppw_tXamN4IA?e=3ohsw6). If you want to download the training data, please refer to official websit of WMT-SLT23 and apply for the license.
+To download our model weights and tokenizer, please download it from [here](https://hkustconnect-my.sharepoint.com/:f:/g/personal/bxuan_connect_ust_hk/EkcGHlIfS5hLvkIW1JgA_QsB542tOQxIHVppw_tXamN4IA?e=3ohsw6). If you want to download the training data, please refer to official website of WMT-SLT23 and apply for the license.
 
 ## Required Packages
 Required packages are listed in `requirements.txt`. Install them by running:
@@ -24,8 +24,8 @@ Please use the bibtex below to cite our paper:
                    Zhaowei Wang and
                    Yangqiu Song},
   title        = {KnowComp Submission for WMT23 Sign Language Translation Task},
-  month = {dec},
+  month        = {dec},
   year         = {2023},
-  booktitle = {Proceedings of the Eighth Conference on Machine Translation, WMT 2023}
+  booktitle    = {Proceedings of the Eighth Conference on Machine Translation, WMT 2023}
 }
 ```
