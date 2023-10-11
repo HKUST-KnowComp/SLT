@@ -26,6 +26,6 @@ Please use the bibtex below to cite our paper:
   title        = {KnowComp Submission for WMT23 Sign Language Translation Task},
   month        = {dec},
   year         = {2023},
-  booktitle    = {Proceedings of the Eighth Conference on Machine Translation, WMT 2023}
+  booktitle    = {Proceedings of the Eighth Conference on Machine Translation (WMT)}
 }
 ```
