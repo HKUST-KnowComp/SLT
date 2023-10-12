@@ -67,7 +67,8 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-config = ConfigL() if args.size.upper() == 'L' else ConfigS()
+# config = ConfigL() if args.size.upper() == 'L' else ConfigS()
+config = ConfigS()
 tokenizer_path = ''
 
 # set seed
@@ -127,8 +128,8 @@ if __name__ == '__main__':
     tsne = TSNE(n_components=2,random_state = config.seed)
     transform = False
     root = path_to_align_weight
-    tokenizer_dir = 'path/to/tokenizer'
-    model_dir = 'path/to/model'
+    tokenizer_dir = ''
+    model_dir = ''
     tokenizer = GPT2Tokenizer.from_pretrained(os.path.join(root,tokenizer_dir),pad_token = '<pad>',eos_token = '</s>',bos_token = '<s>')
     label_name = 'after'
     model = Net(
@@ -145,15 +146,24 @@ if __name__ == '__main__':
                 slice_num=5
             )
     checkpoint = torch.load(os.path.join(root,model_dir))
-    model.load_state_dict(checkpoint['model_state_dict'])
+    state_dict = checkpoint['model_state_dict']
+    new_state_dict = {}
+
+    for key, value in state_dict.items():
+        if key.startswith('ie'):
+            new_key = key.replace('ie', 'ie.model')
+        else:
+            new_key = key
+
+        new_state_dict[new_key] = value
+    model.load_state_dict(new_state_dict)
+    
     model.to(device)
-    # model.td.tokenizer.from_pretrained(tokenizer_path)
     model.eval()
     for idx, (img_emb, cap, att,is_video) in enumerate(valid_loader):
         if idx == 500:
             break
         img_emb = img_emb.to(device)
-        img_emb_lst.append(img_emb.to('cpu').view(-1).numpy())
         with torch.no_grad():
             caption, _ ,img_mapped,img_embbed = model(img_emb, args.temperature)
             img_mapped = img_mapped.view(-1)
@@ -174,4 +184,4 @@ if __name__ == '__main__':
             plt.scatter(tsne_proj[i, 0], tsne_proj[i, 1],marker = '+',color = cmap(1),s =50)
     plt.title("T-SNE Visualization Of Video Embedding")
     plt.legend()
-    plt.savefig(path_to_save_plt,dpi = 800)
+    plt.savefig(path_to_save_plt,bbox_inches='tight',dpi = 1000)

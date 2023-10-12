@@ -235,8 +235,8 @@ def cl_fn(batch, model,device):
     vis_embedded,input_ids,attention_mask,is_video = batch
     vis_embedded = torch.cat(vis_embedded).to(device)
     del batch
-
-    video_embed = model(vis_embedded)['embds'].view(-1,1024)
+    
+    video_embed = torch.mean(model(vis_embedded)['embds'].view(-1,1024),dim = 0).reshape(-1)
     input_ids = torch.stack(input_ids)
     attention_mask = torch.stack(attention_mask)
     return video_embed, input_ids, attention_mask, is_video

@@ -15,15 +15,14 @@ class ImageEncoder(nn.Module):
         
         self.device = device
 
-        self.preprocessor = CLIPProcessor.from_pretrained(model)
-        self.model = CLIPModel.from_pretrained(model).vision_model.to(self.device)
-
+        # self.preprocessor = CLIPProcessor.from_pretrained(model)
+        self.model = model
     def forward(self, image):
         # only one image at a time
-        image = self.preprocessor(images=image, return_tensors='pt').to(self.device)
+        # image = self.preprocessor(images=image, return_tensors='pt').to(self.device)
         image_features = self.model(**image)
         
-        return image_features.pooler_output
+        return image_features
 
 class Mapping(nn.Module):
     '''
@@ -46,10 +45,12 @@ class Mapping(nn.Module):
         self.embed_size = embed_size
 
         self.device = device
+        
+        self.pre_mapper = nn.Linear(embed_size,2*ep_len*embed_size)
 
         self.transformer_encoder = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(
-                d_model=embed_size, 
+                d_model=1024, 
                 nhead=n_heads, 
                 dim_feedforward=embed_size*forward_expansion, 
                 dropout=dropout, 
@@ -59,19 +60,20 @@ class Mapping(nn.Module):
             num_layers=num_layers
         ).to(self.device)
 
-        self.mapper = nn.Linear(embed_size, ep_len * embed_size).to(self.device)
+        self.mapper = nn.Linear(2*ep_len*embed_size, ep_len * 768).to(self.device)
 
         self.init_weights()
 
     def forward(self, img_embedded, train_mode=False):
-        x = self.transformer_encoder(img_embedded)
+        x = self.pre_mapper(img_embedded).view(-1,1024)
+        x = self.transformer_encoder(x).view(-1)
         x = self.mapper(x)
 
         x = x.view(
             *(
-                [-1, self.ep_len, self.embed_size] 
+                [-1, self.ep_len, 768] 
                 if train_mode else 
-                [self.ep_len, self.embed_size]
+                [self.ep_len, 768]
             )
         ) # for batched input
 
@@ -92,13 +94,13 @@ class TextDecoder(nn.Module):
         Processes embedding into caption.
     '''
 
-    def __init__(self, model, device='cpu'):
+    def __init__(self, model, tokenizer,device='cpu'):
         super(TextDecoder, self).__init__()
         
         self.device = device
         
-        self.tokenizer = GPT2Tokenizer.from_pretrained(model)
-        self.tokenizer.pad_token = self.tokenizer.eos_token
+        # self.tokenizer = GPT2Tokenizer.from_pretrained(model)
+        self.tokenizer = tokenizer
 
         self.model = GPT2LMHeadModel.from_pretrained(model).to(self.device)
         self.vocab_size = self.model.config.vocab_size
@@ -113,7 +115,7 @@ class Net(nn.Module):
         Final Model class. Puts all pieces together and generates caption based on image.
     '''
     
-    def __init__(self, clip_model, text_model, ep_len, num_layers, n_heads, forward_expansion, dropout, max_len, device='cpu'):
+    def __init__(self, clip_model, text_model, tokenizer, ep_len, num_layers, n_heads, forward_expansion, dropout, max_len, device='cpu',slice_num=5):
         '''
             Model constructor.
             Args:
@@ -129,10 +131,10 @@ class Net(nn.Module):
         self.ep_len = ep_len
 
         self.ie = ImageEncoder(model=clip_model, device=device)
-        self.mp = Mapping(ep_len=self.ep_len, num_layers=num_layers, embed_size=self.ie.model.config.hidden_size, n_heads=n_heads, forward_expansion=forward_expansion, dropout=dropout, device=device)
-        self.td = TextDecoder(model=text_model, device=device)
+        self.mp = Mapping(ep_len=self.ep_len, num_layers=num_layers, embed_size=1024, n_heads=n_heads, forward_expansion=forward_expansion, dropout=dropout, device=device)
+        self.td = TextDecoder(model=text_model, tokenizer = tokenizer, device=device)
         
-        assert self.ie.model.config.hidden_size == self.td.model.config.n_embd, "Embedding size of models mismatch"
+        assert self.td.model.config.n_embd == 768, "Embedding size of models mismatch"
 
         self.max_len = max_len
 
@@ -160,8 +162,8 @@ class Net(nn.Module):
             print('Temperature must be positive. Setting it to 1.0')
 
         with torch.no_grad():
-            img_embedded = self.ie(img)
-
+            # img_embedded = self.ie(img)
+            img_embedded = img
             # (ep_len, embed_size)
             img_mapped = self.mp(img_embedded)
 
@@ -204,7 +206,7 @@ class Net(nn.Module):
             decoded = decoded.strip()
             decoded = decoded[0].upper() + decoded[1:]
 
-            return decoded, tokens
+            return decoded, tokens,img_mapped,img_embedded
 
     def train_forward(self, img_emb, trg_cap, att_mask):
         # method should get embedded by CLIP images and trg_text without last token.
@@ -228,7 +230,7 @@ class Net(nn.Module):
         x += pos_emb
 
         res = self.td(x, attention_mask=x_mask)
-        res = torch.softmax(res, dim=2)
+        # res = torch.softmax(res, dim=2)
 
         loss = self.criterion(res[:, self.ep_len:, :].reshape(-1, res.shape[-1]), y.reshape(-1))
         
